@@ -83,6 +83,10 @@ docker compose run --rm airflow-webserver airflow users create \
 echo "正在启动 Airflow 服务..."
 docker compose up -d airflow-scheduler airflow-webserver
 
+# 启动 Metabase BI 工具
+echo "正在启动 Metabase BI 工具..."
+docker compose up -d metabase
+
 # 等待服务就绪
 sleep 5
 
@@ -102,6 +106,17 @@ echo "🌐 Airflow 管理界面:"
 echo "   http://localhost:8080"
 echo "   用户名: airflow"
 echo "   密码: airflow"
+echo ""
+echo "📊 Metabase BI 分析工具:"
+echo "   http://localhost:3000"
+echo "   首次访问需要设置管理员账户"
+echo "   数据库连接信息："
+echo "   - 类型: PostgreSQL"
+echo "   - 主机: postgres"
+echo "   - 端口: 5432"
+echo "   - 数据库: sparkifydb"
+echo "   - 用户名: student"
+echo "   - 密码: student"
 echo ""
 echo "可用操作："
 echo "  1. 通过 Web 界面执行操作（推荐）"

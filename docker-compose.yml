@@ -162,10 +162,39 @@ services:
     networks:
       - sparkify_network
 
+  metabase:
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/metabase/metabase:latest
+    container_name: sparkify_metabase
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: sparkifydb
+      MB_DB_PORT: 5432
+      MB_DB_USER: student
+      MB_DB_PASS: student
+      MB_DB_HOST: postgres
+      MB_SITE_NAME: Sparkify Analytics
+      MB_SITE_LOCALE: zh
+    volumes:
+      - metabase_data:/metabase-data
+    networks:
+      - sparkify_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
 volumes:
   postgres_data:
   postgres_airflow_data:
   airflow_logs:
+  metabase_data:
 
 networks:
   sparkify_network:

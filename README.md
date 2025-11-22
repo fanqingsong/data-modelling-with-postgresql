@@ -105,3 +105,135 @@ This project will help the analytics team at Sparkify to run queries to understa
 # HOW TO RUN THE PYTHON SCRIPTS
 * Run python create_tables.py to create the database, fact and dimension tables along with insert statements to populate data through etl.py file later
 * Run python etl.py to process data from JSON files and populate corresponding data to tables in the database
+
+# DOCKER COMPOSE 部署
+
+## 快速启动
+
+使用一键启动脚本：
+```bash
+./start.sh
+```
+
+使用一键停止脚本：
+```bash
+./stop.sh
+```
+
+## 服务访问
+
+启动成功后，可以访问以下服务：
+
+1. **Web 管理界面** (http://localhost:5000)
+   - 查看数据库统计信息
+   - 浏览数据表内容
+   - 刷新统计数据
+
+2. **Airflow 管理界面** (http://localhost:8080)
+   - 用户名: `airflow`
+   - 密码: `airflow`
+   - 查看 ETL 任务执行状态
+   - 手动触发任务执行
+   - 查看任务执行历史和日志
+   - DAG 名称: `sparkify_etl_pipeline`（每小时自动执行一次）
+
+3. **Metabase BI 分析工具** (http://localhost:3000)
+   - 首次访问需要设置管理员账户
+   - 连接数据库信息：
+     - 类型: PostgreSQL
+     - 主机: `postgres`
+     - 端口: `5432`
+     - 数据库: `sparkifydb`
+     - 用户名: `student`
+     - 密码: `student`
+   - 功能：
+     - 可视化查询构建器（无需写 SQL）
+     - 自动识别事实表和维度表关系
+     - 丰富的图表类型
+     - 创建仪表板和报表
+     - 支持钻取、切片等 OLAP 操作
+
+## Metabase 使用指南
+
+### 首次设置
+
+1. 访问 http://localhost:3000
+2. 设置管理员账户（邮箱、姓名、密码）
+3. 选择数据源：PostgreSQL
+4. 填写连接信息：
+   - 名称：Sparkify Database
+   - 主机：`postgres`
+   - 端口：`5432`
+   - 数据库名：`sparkifydb`
+   - 用户名：`student`
+   - 密码：`student`
+5. 点击"连接"完成设置
+
+### 数据分析示例
+
+#### 示例 1：按性别统计播放次数
+1. 点击"新建" → "问题"
+2. 选择 `songplays` 表（事实表）
+3. 拖拽 `users.gender` 到分组
+4. 拖拽 `songplays` 计数到值
+5. 选择图表类型（如柱状图）
+6. 保存问题
+
+#### 示例 2：热门歌曲 Top 10
+1. 新建问题
+2. 选择 `songplays` 表
+3. 关联 `songs` 表（自动识别关系）
+4. 按 `songs.title` 分组
+5. 计数 `songplays`
+6. 排序：降序
+7. 限制：10 条
+8. 可视化
+
+#### 示例 3：时间趋势分析
+1. 新建问题
+2. 选择 `songplays` 表
+3. 关联 `time` 表
+4. 按 `time.month` 分组
+5. 计数 `songplays`
+6. 选择折线图查看趋势
+
+### 创建仪表板
+
+1. 点击"新建" → "仪表板"
+2. 添加已保存的问题
+3. 调整布局和大小
+4. 设置筛选器（如时间范围、用户类型等）
+5. 保存并分享仪表板
+
+## 服务架构
+
+```
+┌─────────────────┐
+│   PostgreSQL    │ ← 主数据库（sparkifydb）
+│   Port: 5432    │
+└────────┬────────┘
+         │
+    ┌────┴────┬──────────┬─────────────┐
+    │         │          │             │
+    ▼         ▼          ▼             ▼
+┌──────┐ ┌────────┐ ┌──────────┐ ┌──────────┐
+│  Web │ │Airflow │ │ Metabase │ │  App     │
+│ :5000│ │ :8080  │ │  :3000   │ │ Container│
+└──────┘ └────────┘ └──────────┘ └──────────┘
+```
+
+## 数据流程
+
+1. **ETL 流程**（Airflow 自动执行，每小时一次）：
+   - `create_tables` 任务：创建/更新数据库表结构
+   - `run_etl` 任务：处理 JSON 文件并加载到数据库
+
+2. **数据分析**（Metabase）：
+   - 连接 PostgreSQL 数据库
+   - 自动识别星型模型（事实表 + 维度表）
+   - 通过可视化界面进行数据分析
+
+3. **数据查看**（Web 界面）：
+   - 实时查看数据库统计
+   - 浏览数据表内容
+   - 分页查看数据
