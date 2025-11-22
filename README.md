@@ -12,13 +12,88 @@ Sparkify is a startup that just launched a music streaming application. The appl
 This project will help the analytics team at Sparkify to run queries to understand their end users more.
 # DATABASE SCHEMA DESIGN & ETL PROCESS
 ### Database Schema Design
-##### **Fact Table**
-songplays (songplay_id, start_time, user_id, level, song_id, artist_id, session_id, location, user_agent)** - records in log data associated with song plays i.e. records with page NextSong
-##### **Dimension Tables**
-1. users (user_id, first_name, last_name, gender, level) - users in the app
-2. songs (song_id, title, artist_id, year, duration) - songs in music database
-3. artists (artist_id, name, location, latitude, longitude) - artists in music database
-4. time (start_time, hour, day, week, month, year, weekday) - timestamps of records in **songplays** broken down into specific units
+
+本项目采用**星型模型（Star Schema）**设计，包含一个事实表和四个维度表。
+
+#### **事实表（Fact Table）**
+
+**songplays** 表是事实表，用于记录每次歌曲播放事件：
+- **作用**：存储业务事件（歌曲播放）的核心数据
+- **特点**：
+  - 数据量大：每次播放都会产生一条记录
+  - 增长快速：随时间不断累积
+  - 包含度量值：`session_id`、`location`、`user_agent`、`start_time`
+  - 包含外键：`user_id`、`song_id`、`artist_id`（指向维度表）
+- **字段**：songplay_id, start_time, user_id, level, song_id, artist_id, session_id, location, user_agent
+- **用途**：用于统计分析，如播放次数、用户行为分析等
+
+#### **维度表（Dimension Tables）**
+
+维度表提供描述性信息，为事实表提供分析的上下文和分类维度：
+
+1. **users** (user_id, first_name, last_name, gender, level)
+   - **作用**：存储用户信息
+   - **用途**：分析不同用户群体（性别、会员等级）的播放行为
+   - **特点**：数据量相对较小，更新频率低
+
+2. **songs** (song_id, title, artist_id, year, duration)
+   - **作用**：存储歌曲信息
+   - **用途**：分析热门歌曲、年代分布、歌曲时长等
+   - **特点**：提供歌曲的详细描述信息
+
+3. **artists** (artist_id, name, location, latitude, longitude)
+   - **作用**：存储艺术家信息
+   - **用途**：分析艺术家受欢迎程度、地域分布等
+   - **特点**：包含地理位置信息，支持地理分析
+
+4. **time** (start_time, hour, day, week, month, year, weekday)
+   - **作用**：存储时间维度信息
+   - **用途**：分析播放时间模式、高峰时段、季节性趋势等
+   - **特点**：将时间戳分解为多个时间维度，便于时间分析
+
+#### **为什么使用星型模型？**
+
+1. **性能优化**
+   - 避免数据冗余，减少存储空间
+   - 通过 JOIN 查询，提高查询效率
+   - 维度表可以建立索引，加速查询
+
+2. **查询示例**
+   ```sql
+   -- 找出2024年11月，女性用户播放最多的前10首歌曲
+   SELECT 
+       s.title AS song_title,
+       a.name AS artist_name,
+       COUNT(*) AS play_count
+   FROM songplays sp
+   JOIN users u ON sp.user_id = u.user_id
+   JOIN songs s ON sp.song_id = s.song_id
+   JOIN artists a ON sp.artist_id = a.artist_id
+   JOIN time t ON sp.start_time = t.start_time
+   WHERE u.gender = 'F'
+     AND t.year = 2024
+     AND t.month = 11
+   GROUP BY s.title, a.name
+   ORDER BY play_count DESC
+   LIMIT 10;
+   ```
+
+3. **业务价值**
+   - **用户分析**：不同性别、会员等级的播放偏好
+   - **内容分析**：热门歌曲、艺术家排名
+   - **时间分析**：播放高峰时段、季节性趋势
+   - **地域分析**：不同地区的音乐偏好
+
+#### **事实表 vs 维度表对比**
+
+| 特性 | 事实表（songplays） | 维度表（users, songs, artists, time） |
+|------|-------------------|-------------------------------------|
+| **作用** | 记录事件 | 提供上下文 |
+| **数据量** | 大（数千到数百万） | 小（几十到几千） |
+| **更新频率** | 高频（每次播放） | 低频（用户信息变化、新歌曲） |
+| **主要字段** | 度量值 + 外键 | 描述性属性 |
+| **查询用途** | 统计、聚合 | 筛选、分组 |
+
 ### ETL Process
 1. Perform ETL on song_data files to create the songs and artists dimensional tables
 2. Perform ETL on log_data files to create the time and user dimensional tables as well as the songplays fact table

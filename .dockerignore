@@ -1,4 +1,4 @@
-__pycache__/
+__pycache__
 *.pyc
 *.pyo
 *.pyd
@@ -11,8 +11,9 @@ build
 .mypython
 .git
 .gitignore
+*.md
+LICENSE
+*.ipynb
 .vscode
 .idea
-airflow_logs/
-postgres_data/
-postgres_airflow_data/
+

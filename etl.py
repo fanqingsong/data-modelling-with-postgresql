@@ -103,7 +103,20 @@ def main():
     """
     connects to the database, process the JSON files, and populates the data into appropriate tables
     """
-    conn = psycopg2.connect("host=127.0.0.1 dbname=sparkifydb user=student password=student")
+    # Get database connection parameters from environment variables or use defaults
+    db_host = os.getenv('DB_HOST', '127.0.0.1')
+    db_port = os.getenv('DB_PORT', '5432')
+    db_name = os.getenv('DB_NAME', 'sparkifydb')
+    db_user = os.getenv('DB_USER', 'student')
+    db_password = os.getenv('DB_PASSWORD', 'student')
+    
+    conn = psycopg2.connect(
+        host=db_host,
+        port=db_port,
+        dbname=db_name,
+        user=db_user,
+        password=db_password
+    )
     cur = conn.cursor()
 
     process_data(cur, conn, filepath='data/song_data', func=process_song_file)

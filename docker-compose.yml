@@ -1,0 +1,173 @@
+services:
+  postgres:
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/postgres:13
+    container_name: sparkify_postgres
+    environment:
+      POSTGRES_USER: student
+      POSTGRES_PASSWORD: student
+      POSTGRES_DB: studentdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U student"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sparkify_network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sparkify_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: sparkifydb
+      DB_USER: student
+      DB_PASSWORD: student
+      DEFAULT_DB: studentdb
+    volumes:
+      - ./data:/app/data
+      - ./create_tables.py:/app/create_tables.py
+      - ./etl.py:/app/etl.py
+      - ./sql_queries.py:/app/sql_queries.py
+    networks:
+      - sparkify_network
+    command: tail -f /dev/null
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sparkify_web
+    depends_on:
+      postgres:
+        condition: service_healthy
+      app:
+        condition: service_started
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: sparkifydb
+      DB_USER: student
+      DB_PASSWORD: student
+      DEFAULT_DB: studentdb
+    volumes:
+      - ./app.py:/app/app.py
+      - ./templates:/app/templates
+      - ./create_tables.py:/app/create_tables.py
+      - ./etl.py:/app/etl.py
+      - ./sql_queries.py:/app/sql_queries.py
+    ports:
+      - "5000:5000"
+    networks:
+      - sparkify_network
+    command: python app.py
+
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: airflow/Dockerfile
+    container_name: sparkify_airflow_webserver
+    depends_on:
+      postgres_airflow:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres_airflow:5432/airflow
+      - AIRFLOW__CORE__FERNET_KEY=46BKJoQYlPthgtWrYiljfDmuf1-wv__rq_NtI5qX0h8=
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__API__AUTH_BACKEND=airflow.api.auth.backend.basic_auth
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=sparkifydb
+      - DB_USER=student
+      - DB_PASSWORD=student
+      - DEFAULT_DB=studentdb
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./create_tables.py:/opt/airflow/dags/create_tables.py
+      - ./etl.py:/opt/airflow/dags/etl.py
+      - ./sql_queries.py:/opt/airflow/dags/sql_queries.py
+      - ./data:/opt/airflow/dags/data
+      - airflow_logs:/opt/airflow/logs
+    ports:
+      - "8080:8080"
+    command: airflow webserver --port 8080
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - sparkify_network
+
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: airflow/Dockerfile
+    container_name: sparkify_airflow_scheduler
+    depends_on:
+      postgres_airflow:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres_airflow:5432/airflow
+      - AIRFLOW__CORE__FERNET_KEY=46BKJoQYlPthgtWrYiljfDmuf1-wv__rq_NtI5qX0h8=
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=True
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=sparkifydb
+      - DB_USER=student
+      - DB_PASSWORD=student
+      - DEFAULT_DB=studentdb
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./create_tables.py:/opt/airflow/dags/create_tables.py
+      - ./etl.py:/opt/airflow/dags/etl.py
+      - ./sql_queries.py:/opt/airflow/dags/sql_queries.py
+      - ./data:/opt/airflow/dags/data
+      - airflow_logs:/opt/airflow/logs
+    command: airflow scheduler
+    networks:
+      - sparkify_network
+
+  postgres_airflow:
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/postgres:13
+    container_name: sparkify_postgres_airflow
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres_airflow_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sparkify_network
+
+volumes:
+  postgres_data:
+  postgres_airflow_data:
+  airflow_logs:
+
+networks:
+  sparkify_network:
+    driver: bridge
+

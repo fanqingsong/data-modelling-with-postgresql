@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sparkify PostgreSQL 数据建模管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .actions {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        
+        .actions h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #38a169;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(72, 187, 120, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .log-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .log-container.active {
+            display: block;
+        }
+        
+        .log-line {
+            margin-bottom: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .log-success {
+            color: #4ec9b0;
+        }
+        
+        .log-error {
+            color: #f48771;
+        }
+        
+        .tables-section {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .tables-section h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .table-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .table-card {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        
+        .table-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .table-card.active {
+            border-color: #667eea;
+            background: #edf2f7;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            overflow-x: auto;
+            display: block;
+        }
+        
+        .data-table thead {
+            background: #667eea;
+            color: white;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .data-table tbody tr:hover {
+            background: #f7fafc;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .pagination button {
+            padding: 8px 16px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .pagination button:hover:not(:disabled) {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 Sparkify PostgreSQL 数据建模管理</h1>
+            <p>数据库表管理和 ETL 操作控制台</p>
+        </div>
+        
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <h3>Songplays</h3>
+                <div class="value" id="stat-songplays">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Users</h3>
+                <div class="value" id="stat-users">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Songs</h3>
+                <div class="value" id="stat-songs">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Artists</h3>
+                <div class="value" id="stat-artists">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Time</h3>
+                <div class="value" id="stat-time">-</div>
+            </div>
+        </div>
+        
+        <div class="actions">
+            <h2>操作命令</h2>
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="refreshStats()">
+                    🔃 刷新统计
+                </button>
+            </div>
+            <div style="margin-top: 20px; padding: 15px; background: #f0f9ff; border-radius: 6px; border-left: 4px solid #667eea;">
+                <p style="margin: 0; color: #333;">
+                    <strong>💡 提示：</strong>数据库表创建和 ETL 处理已由 Airflow 自动管理，每小时执行一次。
+                    <br>
+                    访问 <a href="http://localhost:8080" target="_blank" style="color: #667eea;">Airflow 管理界面</a> 查看任务执行状态和历史记录。
+                </p>
+            </div>
+            <div class="log-container" id="logContainer" style="display: none;">
+                <div id="logContent"></div>
+            </div>
+        </div>
+        
+        <div class="tables-section">
+            <h2>数据表</h2>
+            <div class="table-list" id="tableList"></div>
+            <div id="tableData"></div>
+        </div>
+    </div>
+    
+    <script>
+        let currentTable = null;
+        let currentPage = 1;
+        
+        // Load stats on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            refreshStats();
+            loadTables();
+        });
+        
+        async function refreshStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const stats = await response.json();
+                
+                document.getElementById('stat-songplays').textContent = stats.songplays || 0;
+                document.getElementById('stat-users').textContent = stats.users || 0;
+                document.getElementById('stat-songs').textContent = stats.songs || 0;
+                document.getElementById('stat-artists').textContent = stats.artists || 0;
+                document.getElementById('stat-time').textContent = stats.time || 0;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        async function loadTables() {
+            try {
+                const response = await fetch('/api/tables');
+                const data = await response.json();
+                const tableList = document.getElementById('tableList');
+                
+                tableList.innerHTML = '';
+                data.tables.forEach(table => {
+                    const card = document.createElement('div');
+                    card.className = 'table-card';
+                    card.textContent = table;
+                    card.onclick = () => loadTableData(table);
+                    tableList.appendChild(card);
+                });
+            } catch (error) {
+                console.error('Error loading tables:', error);
+            }
+        }
+        
+        async function loadTableData(tableName, page = 1) {
+            currentTable = tableName;
+            currentPage = page;
+            
+            // Update active state
+            document.querySelectorAll('.table-card').forEach(card => {
+                card.classList.remove('active');
+                if (card.textContent === tableName) {
+                    card.classList.add('active');
+                }
+            });
+            
+            try {
+                const response = await fetch(`/api/table/${tableName}?page=${page}&per_page=100`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    document.getElementById('tableData').innerHTML = 
+                        `<div class="empty-state">错误: ${data.error}</div>`;
+                    return;
+                }
+                
+                let html = '<table class="data-table"><thead><tr>';
+                data.columns.forEach(col => {
+                    html += `<th>${col.name}<br><small>${col.type}</small></th>`;
+                });
+                html += '</tr></thead><tbody>';
+                
+                if (data.data.length === 0) {
+                    html += `<tr><td colspan="${data.columns.length}" class="empty-state">表中暂无数据</td></tr>`;
+                } else {
+                    data.data.forEach(row => {
+                        html += '<tr>';
+                        data.columns.forEach(col => {
+                            const value = row[col.name] !== null ? row[col.name] : '<em>NULL</em>';
+                            html += `<td>${value}</td>`;
+                        });
+                        html += '</tr>';
+                    });
+                }
+                
+                html += '</tbody></table>';
+                
+                // Add pagination
+                if (data.pages > 1) {
+                    html += '<div class="pagination">';
+                    html += `<button ${page === 1 ? 'disabled' : ''} onclick="loadTableData('${tableName}', ${page - 1})">上一页</button>`;
+                    html += `<span>第 ${page} 页，共 ${data.pages} 页 (总计 ${data.total} 条记录)</span>`;
+                    html += `<button ${page === data.pages ? 'disabled' : ''} onclick="loadTableData('${tableName}', ${page + 1})">下一页</button>`;
+                    html += '</div>';
+                }
+                
+                document.getElementById('tableData').innerHTML = html;
+            } catch (error) {
+                document.getElementById('tableData').innerHTML = 
+                    `<div class="empty-state">错误: ${error.message}</div>`;
+            }
+        }
+        
+        let statusPollInterval = null;
+        
+        async function executeCommand(command) {
+            const logContainer = document.getElementById('logContainer');
+            const logContent = document.getElementById('logContent');
+            const buttons = document.querySelectorAll('.btn');
+            
+            // Disable buttons
+            buttons.forEach(btn => btn.disabled = true);
+            
+            // Show log container
+            logContainer.classList.add('active');
+            logContent.innerHTML = '<div class="log-line">任务已启动，正在执行中...</div>';
+            
+            try {
+                // Start the task
+                const startResponse = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ command })
+                });
+                
+                const startResult = await startResponse.json();
+                
+                if (!startResult.success && startResult.running) {
+                    logContent.innerHTML = '<div class="log-line log-error">任务已在运行中，请等待完成</div>';
+                    buttons.forEach(btn => btn.disabled = false);
+                    return;
+                }
+                
+                // Poll for status updates
+                statusPollInterval = setInterval(async () => {
+                    try {
+                        const statusResponse = await fetch(`/api/execute/status/${command}`);
+                        const status = await statusResponse.json();
+                        
+                        // Update log content
+                        logContent.innerHTML = '';
+                        
+                        if (status.running) {
+                            logContent.innerHTML += '<div class="log-line">执行中，请稍候...</div>';
+                        } else {
+                            // Task completed
+                            clearInterval(statusPollInterval);
+                            statusPollInterval = null;
+                            
+                            if (status.success !== false) {
+                                logContent.innerHTML += '<div class="log-line log-success">✓ 执行成功！</div>';
+                            } else {
+                                logContent.innerHTML += '<div class="log-line log-error">✗ 执行失败</div>';
+                            }
+                            
+                            // Show output
+                            if (status.output) {
+                                status.output.split('\n').forEach(line => {
+                                    if (line.trim()) {
+                                        logContent.innerHTML += `<div class="log-line">${escapeHtml(line)}</div>`;
+                                    }
+                                });
+                            }
+                            
+                            // Show errors
+                            if (status.error) {
+                                status.error.split('\n').forEach(line => {
+                                    if (line.trim()) {
+                                        logContent.innerHTML += `<div class="log-line log-error">${escapeHtml(line)}</div>`;
+                                    }
+                                });
+                            }
+                            
+                            // Enable buttons
+                            buttons.forEach(btn => btn.disabled = false);
+                            
+                            // Refresh stats and tables after successful execution
+                            if (status.success !== false) {
+                                setTimeout(() => {
+                                    refreshStats();
+                                    loadTables();
+                                    if (currentTable) {
+                                        loadTableData(currentTable, currentPage);
+                                    }
+                                }, 1000);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error polling status:', error);
+                    }
+                }, 2000); // Poll every 2 seconds
+                
+            } catch (error) {
+                if (statusPollInterval) {
+                    clearInterval(statusPollInterval);
+                    statusPollInterval = null;
+                }
+                logContent.innerHTML = `<div class="log-line log-error">错误: ${escapeHtml(error.message)}</div>`;
+                buttons.forEach(btn => btn.disabled = false);
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
+
